@@ -2,7 +2,7 @@
 
 A live, single-file solar PV monitoring dashboard — modelled on real inverter-monitoring platforms (SolarEdge, Solis, Fronius) — that turns live weather data into a real-time production model for any location.
 
-**[Live demo →](https://tmugomba.github.io/solar-yield-dashboard/)**
+**[Live demo →](https://tmugomba.github.io/solar-yield-dashboard/)** https://tmugomba.github.io/solar-yield-dashboard/
 
 ![Status](https://img.shields.io/badge/status-complete-brightgreen) ![Stack](https://img.shields.io/badge/stack-HTML%2FCSS%2FJS-f2b705)
 
