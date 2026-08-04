@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <style>
 
 /* ============================= DESIGN TOKENS =============================
@@ -104,6 +105,22 @@ body{
   animation: none;
 }
 .loc-btn.secondary{ background: rgba(255,255,255,0.03); border-color: var(--panel-border); color: var(--text-dim); }
+
+/* ---------- Excel export button — deliberately bolder than a standard
+   secondary utility button, since it's a genuinely useful deliverable
+   (the person's actual results file), not just a minor toggle. ---------- */
+.export-btn{
+  display:inline-flex; align-items:center; gap:8px;
+  background: linear-gradient(135deg, #f2b705, #d9a204); border: none; color: #1a1300;
+  font-family: var(--font-mono); font-size: 12.5px; font-weight:700; letter-spacing: 0.02em;
+  padding: 10px 18px; border-radius: 8px; cursor: pointer; white-space:nowrap;
+  box-shadow: 0 2px 10px rgba(242,183,5,0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.export-btn:hover{ transform: translateY(-1px); box-shadow: 0 4px 16px rgba(242,183,5,0.5); }
+.export-btn:active{ transform: translateY(0); }
+.export-btn:disabled{ opacity:0.7; cursor:default; transform:none; }
+.export-btn .export-icon{ font-size:15px; line-height:1; }
 .loc-current{ font-family: var(--font-mono); font-size: 12px; color: var(--text-dim); white-space:nowrap; }
 .loc-current b{ color: var(--text); }
 .loc-status{ font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); width: 100%; }
@@ -868,6 +885,10 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
           <div class="lbl">Net savings after 25 yrs<span class="info-i">i<span class="tooltip">25 years is used because it's the industry-standard solar panel performance warranty period &mdash; most manufacturers guarantee around 80% of original output at year 25 &mdash; making it the conventional horizon for solar investment comparisons, even though panels often keep producing well beyond it.</span></span></div>
           <div class="val" id="pbNet25">&mdash;</div>
         </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; margin-top:14px;">
+        <button class="export-btn" id="pbExportBtn" title="Download the full year-by-year payback breakdown, plus your inputs and summary KPIs, as a styled Excel file"><span class="export-icon">&#8681;</span> Export to Excel</button>
       </div>
 
       <div class="chart-key">
@@ -1981,6 +2002,8 @@ function paybackNumbers(){
   let cumulative = -upfront;
   const cumulativeArr = [cumulative];
   let firstYearSavings = 0;
+  // Row 0 is "year zero" — the upfront outlay, before any production happens
+  const rows = [{ year: 0, energyKwh: 0, rateCents: pbState.rate, grossSavings: 0, costs: upfront, netCashFlow: -upfront, cumulative }];
 
   for (let y = 1; y <= LCOE_LIFETIME_YEARS; y++){
     const energy = baseAnnualEnergy * Math.pow(1 - degradation, y-1);
@@ -1991,6 +2014,7 @@ function paybackNumbers(){
     cumulative += netCF;
     cumulativeArr.push(cumulative);
     if (y === 1) firstYearSavings = netCF;
+    rows.push({ year: y, energyKwh: energy, rateCents: rate*100, grossSavings, costs, netCashFlow: netCF, cumulative });
   }
 
   // payback = first year cumulative crosses zero, interpolated within that year
@@ -2005,7 +2029,7 @@ function paybackNumbers(){
 
   return {
     investment: upfront, netCost, annualSavings: firstYearSavings,
-    paybackYears, net25: cumulativeArr[LCOE_LIFETIME_YEARS], years, cumulativeArr,
+    paybackYears, net25: cumulativeArr[LCOE_LIFETIME_YEARS], years, cumulativeArr, rows,
   };
 }
 
@@ -2067,7 +2091,192 @@ function renderPaybackChart(){
   });
 }
 
+/* ---------- Excel export (payback / savings calculator) ----------
+   Builds a styled 2-sheet workbook — a Summary sheet (KPI cards, your
+   inputs, and the payback chart itself embedded as an image) and a
+   Year-by-year sheet (the full cash-flow table, colour-coded and
+   zebra-striped). Uses the exact same paybackNumbers() the on-screen
+   chart reads from, so the export can never drift out of sync with
+   what's on screen. Colors mirror the dashboard's own theme. */
+const XL = {
+  navy:  'FF12181F', navyText: 'FF1A2332', amber: 'FFF2B705', amberText: 'FF8A6400',
+  cyan:  'FF4FD8C4', cyanText: 'FF0F6B5C', red: 'FFE8635D', redText: 'FF8A2A25',
+  grey:  'FFF4F6F8', white: 'FFFFFFFF', label: 'FF6B7785',
+};
+const thinBorder = { style: 'thin', color: { argb: 'FFDDE3E8' } };
+
+async function exportPaybackToExcel(){
+  const btn = document.getElementById('pbExportBtn');
+  const originalLabel = btn.innerHTML;
+  btn.textContent = 'Generating…'; btn.disabled = true;
+
+  try{
+    const n = paybackNumbers();
+    const adv = pbState.advanced;
+    const provinceName = solarProvinceData.find(p => p.code === pbState.province)?.name ?? pbState.province;
+
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Solar Yield Dashboard'; wb.created = new Date();
+
+    /* ================= SHEET 1: SUMMARY ================= */
+    const sum = wb.addWorksheet('Summary', { views: [{ showGridLines: false }] });
+    sum.columns = [{width:3},{width:26},{width:20},{width:20},{width:20},{width:3}];
+
+    sum.mergeCells('B2:E2');
+    sum.getCell('B2').value = 'Solar Payback Summary';
+    sum.getCell('B2').font = { name:'Calibri', size:20, bold:true, color:{argb: XL.navy} };
+    sum.getRow(2).height = 32;
+
+    sum.mergeCells('B3:E3');
+    sum.getCell('B3').value = `${provinceName} · ${pbState.cap} kWp system · generated ${new Date().toLocaleDateString()}`;
+    sum.getCell('B3').font = { italic:true, size:11, color:{argb: XL.label} };
+    sum.getRow(4).height = 8;
+
+    // ---- 4 KPI "cards", same numbers as the on-screen KPI cards ----
+    const kpis = [
+      ['TOTAL INVESTMENT', '$' + Math.round(n.investment).toLocaleString(), XL.amber, XL.amberText],
+      ['ANNUAL SAVINGS (YR 1)', '$' + Math.round(n.annualSavings).toLocaleString(), XL.cyan, XL.cyanText],
+      ['PAYBACK PERIOD', isFinite(n.paybackYears) ? n.paybackYears.toFixed(1)+' yrs' : 'Never (25 yrs)', XL.amber, XL.amberText],
+      ['NET SAVINGS (25 YRS)', '$' + Math.round(n.net25).toLocaleString(), XL.cyan, XL.cyanText],
+    ];
+    const kpiCols = ['B','C','D','E'];
+    sum.getRow(5).height = 18; sum.getRow(6).height = 26;
+    kpis.forEach(([label, value, fill, textColor], i) => {
+      const col = kpiCols[i];
+      const lc = sum.getCell(`${col}5`); lc.value = label;
+      lc.font = { size:9, bold:true, color:{argb: XL.label} };
+      lc.alignment = { horizontal:'center' };
+      const vc = sum.getCell(`${col}6`); vc.value = value;
+      vc.font = { size:15, bold:true, color:{argb: textColor} };
+      vc.fill = { type:'pattern', pattern:'solid', fgColor:{argb: fill} };
+      vc.alignment = { horizontal:'center', vertical:'middle' };
+      vc.border = { top:thinBorder, bottom:thinBorder, left:thinBorder, right:thinBorder };
+    });
+    sum.getRow(7).height = 10;
+
+    // ---- Inputs table ----
+    sum.mergeCells('B8:E8');
+    sum.getCell('B8').value = 'Your inputs';
+    sum.getCell('B8').font = { size:12, bold:true, color:{argb: XL.navy} };
+
+    const inputRows = [
+      ['System type', pbState.type === 'residential' ? 'Residential' : 'Commercial'],
+      ['Province', provinceName],
+      ['System size (kWp)', pbState.cap],
+      ['Installed cost ($/W)', pbState.costPerW],
+      ['Electricity rate (¢/kWh)', pbState.rate],
+      ['Estimated yield (kWh/kWp/yr)', pbState.yieldKwh],
+      ['Advanced mode', adv ? 'On' : 'Off'],
+    ];
+    if (adv){
+      inputRows.push(
+        ['Rebate ($)', pbState.rebate],
+        ['Financing', pbState.financeMode === 'loan' ? 'Loan' : 'Cash'],
+        ...(pbState.financeMode === 'loan' ? [['Loan rate (%)', pbState.loanRate], ['Loan term (yrs)', pbState.loanTerm]] : []),
+        ['Electricity inflation (%/yr)', pbState.inflation],
+        ['Panel degradation (%/yr)', pbState.degradation],
+        ['Annual maintenance ($)', pbState.maintenance],
+        ['Inverter replacement cost ($)', pbState.inverterCost],
+        ['Inverter replacement year', pbState.inverterYear],
+      );
+    }
+    let r = 9;
+    inputRows.forEach(([label, value], i) => {
+      const labelCell = sum.getCell(`B${r}`), valueCell = sum.getCell(`C${r}`);
+      labelCell.value = label; valueCell.value = value;
+      labelCell.font = { size:10.5, color:{argb: XL.label} };
+      valueCell.font = { size:10.5, bold:true, color:{argb: XL.navy} };
+      if (i % 2 === 0){ // zebra striping
+        labelCell.fill = valueCell.fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.grey} };
+      }
+      r++;
+    });
+    r += 1;
+
+    // ---- Embed the live payback chart as an image, straight off the canvas ----
+    if (paybackChartInstance){
+      const dataUrl = paybackChartInstance.toBase64Image(); // "data:image/png;base64,...."
+      const base64 = dataUrl.split(',')[1];
+      const imgId = wb.addImage({ base64, extension: 'png' });
+      sum.mergeCells(`B${r}:E${r}`);
+      sum.getCell(`B${r}`).value = 'Cumulative position over time';
+      sum.getCell(`B${r}`).font = { size:12, bold:true, color:{argb: XL.navy} };
+      sum.addImage(imgId, { tl: { col: 1, row: r }, ext: { width: 640, height: 300 } });
+    }
+
+    /* ================= SHEET 2: YEAR-BY-YEAR ================= */
+    const yrs = wb.addWorksheet('Year-by-year', { views: [{ state:'frozen', ySplit:1, showGridLines:false }] });
+    const headers = ['Year','Energy produced (kWh)','Electricity rate (¢/kWh)','Gross savings ($)','Costs ($)','Net cash flow ($)','Cumulative position ($)','Note'];
+    yrs.columns = headers.map(h => ({ header:h, width: h==='Year' ? 8 : (h==='Note' ? 34 : 22) }));
+
+    const headerRow = yrs.getRow(1);
+    headerRow.eachCell(cell => {
+      cell.font = { bold:true, color:{argb: XL.white} };
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.navy} };
+      cell.alignment = { horizontal:'center', vertical:'middle', wrapText:true };
+    });
+    headerRow.height = 32;
+
+    // an "inverter replacement year" only actually adds a cost when Advanced
+    // mode is on and a nonzero inverter cost is set — matches the same
+    // condition paybackNumbers() uses to add that cost into the row
+    const inverterYearActive = adv && pbState.inverterCost > 0;
+    const inverterFill = 'FFFFF3CD'; // light amber tint, distinct from the grey zebra stripe
+
+    n.rows.forEach((row, i) => {
+      const isInverterYear = inverterYearActive && row.year === pbState.inverterYear;
+      const excelRow = yrs.addRow([
+        row.year, Math.round(row.energyKwh), Number(row.rateCents.toFixed(2)),
+        Math.round(row.grossSavings), Math.round(row.costs), Math.round(row.netCashFlow), Math.round(row.cumulative),
+        isInverterYear ? `* Inverter replacement ($${Math.round(pbState.inverterCost).toLocaleString()})` : ''
+      ]);
+      excelRow.eachCell((cell, colNum) => {
+        cell.border = { bottom: thinBorder };
+        cell.alignment = { horizontal: (colNum===1 ? 'center' : (colNum===8 ? 'left' : 'right')) };
+        if (isInverterYear){
+          cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb: inverterFill} };
+        } else if (i % 2 === 0){
+          cell.fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.grey} };
+        }
+        if (colNum >= 4 && colNum <= 6) cell.numFmt = '"$"#,##0';
+        if (colNum === 3) cell.numFmt = '0.00"¢"';
+      });
+      if (isInverterYear){
+        excelRow.getCell(8).font = { italic:true, bold:true, size:10, color:{argb: XL.amberText} };
+      }
+      // cumulative column: red while still paying off the system, cyan/green once it's net-positive
+      const cumCell = excelRow.getCell(7);
+      cumCell.numFmt = '"$"#,##0';
+      cumCell.font = { bold:true, color:{argb: row.cumulative < 0 ? XL.redText : XL.cyanText} };
+    });
+    yrs.autoFilter = { from: 'A1', to: `H${n.rows.length+1}` };
+
+    if (inverterYearActive){
+      const noteRow = yrs.getRow(n.rows.length + 3);
+      noteRow.getCell(1).value = `* Year ${pbState.inverterYear}: inverter replacement adds a one-time $${Math.round(pbState.inverterCost).toLocaleString()} cost on top of regular maintenance.`;
+      noteRow.getCell(1).font = { italic:true, size:10, color:{argb: XL.label} };
+    }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `solar-payback-${pbState.province}-${pbState.cap}kWp-${new Date().toISOString().slice(0,10)}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  } catch(err){
+    console.error('Excel export failed:', err);
+    alert('Sorry, the Excel export ran into a problem. Please try again.');
+  } finally {
+    btn.innerHTML = originalLabel; btn.disabled = false;
+  }
+}
+
+document.getElementById('pbExportBtn').addEventListener('click', exportPaybackToExcel);
+
 function renderFlow(){
+
   const svg = document.getElementById('flowDiagram');
   const powerNow = state.hourly ? powerFromGHI(state.hourly.ghi[state.hourly.nowIdx]) : 0;
   const intensity = Math.max(0, Math.min(1, powerNow / Math.max(state.cap, 0.1)));
