@@ -2356,11 +2356,13 @@ function renderFlow(){
     ${particle(400,70,470,70,0.4)}${particle(400,70,470,70,1.0)}
     <text x="435" y="52" text-anchor="middle" fill="#f2b705" font-family="JetBrains Mono" font-size="13" font-weight="700">${powerNow.toFixed(2)} kW</text>
 
-    <!-- home, with windows that light up while power is flowing -->
-    <path d="M 475 88 L 475 60 L 505 40 L 535 60 L 535 88 Z" fill="#1b2a3a" stroke="${active?lineColor:'#202c3a'}" stroke-width="${active?1.5:1}"/>
-    <rect x="481" y="66" width="10" height="10" rx="1.5" fill="#f2b705" class="${active?'flow-window-lit':''}" opacity="${active?1:0.15}"/>
-    <rect x="519" y="66" width="10" height="10" rx="1.5" fill="#f2b705" class="${active?'flow-window-lit':''}" opacity="${active?1:0.15}"/>
-    <rect x="500" y="72" width="12" height="16" fill="#0a0e14"/>
+    <!-- home, redesigned with a peaked roof (with overhang) sitting distinctly above the wall,
+         rather than one flat pentagon shape — windows still light up while power is flowing -->
+    <polygon points="472,63 505,35 538,63" fill="#16283c" stroke="${active?lineColor:'#202c3a'}" stroke-width="${active?1.5:1}" stroke-linejoin="round"/>
+    <rect x="480" y="61" width="50" height="27" fill="#1b2a3a" stroke="${active?lineColor:'#202c3a'}" stroke-width="${active?1.5:1}"/>
+    <rect x="486" y="68" width="9" height="9" rx="1.5" fill="#f2b705" class="${active?'flow-window-lit':''}" opacity="${active?1:0.15}"/>
+    <rect x="515" y="68" width="9" height="9" rx="1.5" fill="#f2b705" class="${active?'flow-window-lit':''}" opacity="${active?1:0.15}"/>
+    <rect x="500" y="74" width="10" height="14" fill="#0a0e14"/>
     <text x="505" y="115" text-anchor="middle" fill="#a9b8c4" font-family="JetBrains Mono" font-size="10">HOME/GRID</text>
   `;
 }
