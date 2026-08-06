@@ -808,7 +808,7 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
       <div class="field" style="margin-top:14px;">
         <div class="field-label"><span>Expected annual production (kWh)</span></div>
         <input type="number" class="number-input" id="pbExpectedProdInput" value="6108" step="50" min="0">
-        <div class="field-note">This is what drives the payback numbers below &mdash; the total kWh your system is expected to produce per year. Pre&#8209;filled from system size &times; the province's irradiance figure, but edit it to match a real installer quote or PVWatts estimate. The province irradiance estimate itself is shown below for comparison only.</div>
+        <div class="field-note">This is what drives the payback numbers below &mdash; the total kWh your system is expected to produce per year. Pre&#8209;filled from system size &times; the province's irradiance figure, but edit it to match a real installer quote or PVWatts estimate. The province irradiance estimate itself is shown below for comparison only &mdash; it no longer feeds the calculation.</div>
       </div>
 
       <div style="margin-top:14px;">
@@ -2230,24 +2230,29 @@ async function exportPaybackToExcel(){
 
     // ---- Inputs table ----
     sum.mergeCells('B8:E8');
-    sum.getCell('B8').value = 'Your inputs';
-    sum.getCell('B8').font = { size:12, bold:true, color:{argb: XL.navy} };
+    sum.getRow(8).height = 20;
+    const headerCell = sum.getCell('B8');
+    headerCell.value = '  Your inputs';
+    headerCell.font = { size:12, bold:true, color:{argb: XL.white} };
+    headerCell.alignment = { vertical:'middle' };
     ['B','C','D','E'].forEach(col => {
-      sum.getCell(`${col}8`).border = { bottom: { style:'thin', color:{argb: XL.navy} } };
+      sum.getCell(`${col}8`).fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.navy} };
     });
 
     // Each row is [label, value, numFmt, unit]. The number lives alone in column C
     // (right-aligned, plain numeric format — no unit baked in), and the unit sits
     // in its own cell in column D, left-aligned right next to it.
+    const grossInvestmentForExport = pbState.cap * 1000 * pbState.costPerW;
     const inputRows = [
       ['System type', pbState.type === 'residential' ? 'Residential' : 'Commercial', null, ''],
       ['Province', provinceName, null, ''],
-      ['System size', pbState.cap, '0.##', 'kWp'],
+      ['System size', pbState.cap, '0.0', 'kWp'],
       ['Installed cost', pbState.costPerW, '"$"0.00', '/W'],
+      ['Total installed cost', grossInvestmentForExport, '"$"#,##0', ''],
       ['Electricity rate', pbState.rate, '0.0', '¢/kWh'],
-      ['Expected annual production — used in calculation', pbState.expectedProd, '#,##0', 'kWh'],
+      ['Expected production (used)', pbState.expectedProd, '#,##0', 'kWh'],
       ['Specific yield used', Math.round(pbState.expectedProd / pbState.cap), '#,##0', 'kWh/kWp/yr'],
-      ['Province irradiance estimate — comparison only', provinceYield(pbState.province), '#,##0', 'kWh/kWp/yr'],
+      ['Province irradiance (comparison)', provinceYield(pbState.province), '#,##0', 'kWh/kWp/yr'],
       ['Advanced mode', adv ? 'On' : 'Off', null, ''],
     ];
     if (adv){
@@ -2270,11 +2275,12 @@ async function exportPaybackToExcel(){
       const labelCell = sum.getCell(`B${r}`), valueCell = sum.getCell(`C${r}`), unitCell = sum.getCell(`D${r}`);
       labelCell.value = label; valueCell.value = value; unitCell.value = unit || '';
       if (numFmt) valueCell.numFmt = numFmt;
+      sum.getRow(r).height = 16;
       labelCell.font = { size:10.5, color:{argb: XL.label} };
       valueCell.font = { size:10.5, bold:true, color:{argb: XL.navy} };
       unitCell.font = { size:9.5, color:{argb: XL.label} };
-      labelCell.alignment = { horizontal:'left' };
-      valueCell.alignment = { horizontal:'right' }; // the number, alone, right-aligned
+      labelCell.alignment = { horizontal:'left', vertical:'middle' };
+      valueCell.alignment = { horizontal:'right', vertical:'middle' }; // the number, alone, right-aligned
       unitCell.alignment = { horizontal:'left', vertical:'middle' }; // the unit, alone, left-aligned right next to it
       if (i % 2 === 0){ // zebra striping
         labelCell.fill = valueCell.fill = unitCell.fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.grey} };
