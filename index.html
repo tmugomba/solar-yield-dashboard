@@ -757,17 +757,17 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
     </div>
 
     <div class="panel">
-      <div class="panel-title">SOLAR INVESTMENT &amp; PAYBACK CALCULATOR<span class="info-i">i<span class="tooltip">Estimates how many years it takes your own solar investment to pay for itself in avoided electricity costs, using the selected province's average solar yield and electricity rate.</span></span>
+      <div class="panel-title">SOLAR INVESTMENT &amp; PAYBACK CALCULATOR<span class="info-i">i<span class="tooltip">Estimates how many years your own solar investment takes to pay for itself in avoided electricity costs, using your expected annual production and the selected province's electricity rate.</span></span>
         <button class="advanced-toggle-btn" id="pbAdvancedToggle" style="margin-left:auto;">&#9881; Advanced mode: Off</button>
       </div>
 
       <div class="field" style="margin-bottom:18px;">
         <div class="field-label">
           <span>Province</span>
-          <button class="loc-btn secondary" id="pbResetBtn" style="padding:4px 10px; font-size:10px;" title="Reset rate, yield and cost back to researched defaults for this province">&#8635; Reset to known/estimated values</button>
+          <button class="loc-btn secondary" id="pbResetBtn" style="padding:4px 10px; font-size:10px;" title="Reset rate, expected production and cost back to researched defaults for this province">&#8635; Reset to known/estimated values</button>
         </div>
         <select id="pbProvinceSelect"></select>
-        <div class="field-note">Sets the electricity rate and average solar yield below &mdash; both stay fully editable after. Use Reset to snap everything back to researched defaults for the selected province.</div>
+        <div class="field-note">Sets the electricity rate and pre-fills Expected annual production below, both stay fully editable after. Use Reset to snap everything back to researched defaults for the selected province.</div>
       </div>
 
       <div class="segmented" id="pbTypeToggle">
@@ -777,9 +777,15 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
 
       <div class="two-col">
         <div class="field">
-          <div class="field-label"><span>System size</span><span class="val" id="pbCapVal">6.0 kWp</span></div>
+          <div class="field-label">
+            <span>System size</span>
+            <span class="val-input-wrap">
+              <input type="number" class="val-input" id="pbCapInput" min="1" max="1000" step="0.1" value="6">
+              <span class="val-input-suffix">kWp</span>
+            </span>
+          </div>
           <input type="range" id="pbCapSlider" min="1" max="1000" step="1" value="6">
-          <div class="field-note" id="pbCapNote">Typical residential systems run 5&ndash;10 kWp.</div>
+          <div class="field-note" id="pbCapNote">Typical residential systems run 5&ndash;10 kWp. Type an exact value above, or drag the slider.</div>
         </div>
         <div class="field">
           <div class="field-label">
@@ -793,17 +799,36 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
           <div class="field-note" id="pbCostNote">$ per watt installed, before any rebates &mdash; edit to match a real quote.</div>
         </div>
       </div>
-      <div class="two-col">
-        <div class="field">
-          <div class="field-label"><span>Electricity rate</span></div>
-          <input type="number" class="number-input" id="pbRateInput" value="19.1" step="0.1" min="1" max="50">
-          <div class="field-note" id="pbRateNote">&cent;/kWh &mdash; defaults to the selected province's approximate residential average.</div>
-        </div>
-        <div class="field">
-          <div class="field-label"><span>Annual solar yield</span></div>
-          <input type="number" class="number-input" id="pbYieldInput" value="1018" step="10" min="200" max="2000">
-          <div class="field-note" id="pbYieldNote">kWh produced per kWp per year &mdash; pre-filled from the selected province's irradiance figure.</div>
-        </div>
+      <div class="field">
+        <div class="field-label"><span>Electricity rate</span></div>
+        <input type="number" class="number-input" id="pbRateInput" value="19.1" step="0.1" min="1" max="50">
+        <div class="field-note" id="pbRateNote">&cent;/kWh &mdash; defaults to the selected province's approximate residential average.</div>
+      </div>
+
+      <div class="field" style="margin-top:14px;">
+        <div class="field-label"><span>Expected annual production (kWh)</span></div>
+        <input type="number" class="number-input" id="pbExpectedProdInput" value="6108" step="50" min="0">
+        <div class="field-note">This is what drives the payback numbers below &mdash; the total kWh your system is expected to produce per year. Pre&#8209;filled from system size &times; the province's irradiance figure, but edit it to match a real installer quote or PVWatts estimate. The province irradiance estimate itself is shown below for comparison only &mdash; it no longer feeds the calculation.</div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <table class="data-table" id="pbYieldCompareTable">
+          <thead><tr><th>Specific yield<span class="info-i">i<span class="tooltip">Specific yield = annual energy produced (kWh/yr) &divide; installed capacity (kWp). It's the standard metric for comparing solar systems of different sizes on equal footing.</span></span></th><th style="text-align:right;">kWh / kWp / yr</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Province irradiance estimate <span style="color:var(--text-faint); font-size:11px;">(comparison only)</span><span class="info-i">i<span class="tooltip">Calculated as: province's average irradiance (kWh/m&sup2;/day) &times; 365 &times; 82% performance ratio (derates for inverter losses, wiring, temperature, soiling). Note: unlike the LCOE figures elsewhere in this dashboard, this estimate does <b>not</b> include a tilt/orientation gain for a properly angled south-facing array &mdash; it's a flat-irradiance baseline, so it runs somewhat conservative (roughly 15% lower) versus a well-oriented system.</span></span></td>
+              <td style="text-align:right; font-family:var(--font-mono); color:var(--text);" id="pbYieldCompareIrr">&mdash;</td>
+            </tr>
+            <tr>
+              <td>Your yield <span style="color:var(--text-faint); font-size:11px;">(used in calculation)</span></td>
+              <td style="text-align:right; font-family:var(--font-mono); color:var(--cyan);" id="pbYieldCompareUser">&mdash;</td>
+            </tr>
+            <tr>
+              <td>Difference</td>
+              <td style="text-align:right; font-family:var(--font-mono);" id="pbYieldCompareDiff">&mdash;</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <div class="advanced-panel" id="pbAdvancedPanel">
@@ -1786,7 +1811,8 @@ document.getElementById('rateTableResetBtn').addEventListener('click', () => {
 
 /* ---------- Nova Scotia payback calculator ---------- */
 const pbState = {
-  type: 'residential', province: 'NS', cap: 6, costPerW: 3.20, costMode: 'perWatt', rate: 19.1, yieldKwh: 1018,
+  type: 'residential', province: 'NS', cap: 6, costPerW: 3.20, costMode: 'perWatt', rate: 19.1,
+  expectedProd: 6108, prodManuallySet: false, // expectedProd is what actually drives the payback calc
   advanced: false,
   rebate: 0, financeMode: 'cash', loanRate: 6.5, loanTerm: 10,
   inflation: 3.0, degradation: 0.5, maintenance: 100, inverterCost: 1500, inverterYear: 12,
@@ -1813,12 +1839,16 @@ function provinceYield(code){
 function applyProvinceSelection(){
   pbState.province = pbProvinceSelect.value;
   pbState.rate = ELECTRICITY_RATES[pbState.province] ?? pbState.rate;
-  pbState.yieldKwh = provinceYield(pbState.province);
   document.getElementById('pbRateInput').value = pbState.rate.toFixed(1);
-  document.getElementById('pbYieldInput').value = pbState.yieldKwh;
+  // only overwrite the person's own expected-production number if they haven't
+  // customized it yet — a real installer quote shouldn't get silently clobbered
+  // just because they changed the province dropdown
+  if (!pbState.prodManuallySet){
+    pbState.expectedProd = Math.round(pbState.cap * provinceYield(pbState.province));
+    document.getElementById('pbExpectedProdInput').value = pbState.expectedProd;
+  }
   const provinceName = solarProvinceData.find(p => p.code === pbState.province)?.name ?? pbState.province;
   document.getElementById('pbRateNote').textContent = `¢/kWh — defaults to ${provinceName}'s approximate residential average.`;
-  document.getElementById('pbYieldNote').textContent = `kWh produced per kWp per year — pre-filled from ${provinceName}'s irradiance figure.`;
 }
 
 pbProvinceSelect.addEventListener('change', () => {
@@ -1828,9 +1858,10 @@ pbProvinceSelect.addEventListener('change', () => {
 });
 
 document.getElementById('pbResetBtn').addEventListener('click', () => {
-  // restores rate + yield for the current province, and cost/W for the
-  // current system type — leaves system size alone since that's the
+  // restores rate + expected production for the current province, and cost/W
+  // for the current system type — leaves system size alone since that's the
   // person's own scenario, not a "known" researched value
+  pbState.prodManuallySet = false;
   applyProvinceSelection();
   pbState.costPerW = pbState.type === 'residential' ? 3.20 : 2.00;
   syncCostInputs('perWatt');
@@ -1937,14 +1968,33 @@ document.getElementById('pbCostModeToggle').addEventListener('click', (e) => {
 
 function setPbSliderFill(el){ el.style.setProperty('--pct', ((el.value-el.min)/(el.max-el.min))*100 + '%'); }
 const pbCapSlider = document.getElementById('pbCapSlider');
+const pbCapInput = document.getElementById('pbCapInput');
 setPbSliderFill(pbCapSlider);
-pbCapSlider.addEventListener('input', () => {
+
+function onPbCapChange(newCap){
+  pbState.cap = newCap;
+  pbCapSlider.value = Math.max(pbCapSlider.min, Math.min(pbCapSlider.max, newCap));
+  pbCapInput.value = newCap;
   setPbSliderFill(pbCapSlider);
-  pbState.cap = parseFloat(pbCapSlider.value);
-  document.getElementById('pbCapVal').textContent = pbState.cap.toLocaleString() + ' kWp';
-  // system size changed — keep whichever field is NOT being actively edited in sync
+  // system size changed — keep whichever cost field is NOT being actively edited in sync
   syncCostInputs(pbState.costMode);
+  // and, unless the person has typed their own expected-production number,
+  // keep that scaling with system size too
+  if (!pbState.prodManuallySet){
+    pbState.expectedProd = Math.round(pbState.cap * provinceYield(pbState.province));
+    document.getElementById('pbExpectedProdInput').value = pbState.expectedProd;
+  }
   renderPaybackCalc();
+}
+
+pbCapSlider.addEventListener('input', () => onPbCapChange(parseFloat(pbCapSlider.value)));
+pbCapInput.addEventListener('input', () => {
+  const v = parseFloat(pbCapInput.value);
+  if (isNaN(v)) return; // let them keep typing without resetting mid-entry
+  onPbCapChange(Math.max(1, Math.min(1000, v)));
+});
+pbCapInput.addEventListener('blur', () => {
+  if (isNaN(parseFloat(pbCapInput.value)) || parseFloat(pbCapInput.value) < 1) pbCapInput.value = pbState.cap;
 });
 
 document.getElementById('pbCostInput').addEventListener('input', () => {
@@ -1959,12 +2009,15 @@ document.getElementById('pbTotalInput').addEventListener('input', () => {
   renderPaybackCalc();
 });
 
-['pbRateInput','pbYieldInput'].forEach(id => {
-  document.getElementById(id).addEventListener('input', () => {
-    pbState.rate = parseFloat(document.getElementById('pbRateInput').value) || 0;
-    pbState.yieldKwh = parseFloat(document.getElementById('pbYieldInput').value) || 0;
-    renderPaybackCalc();
-  });
+document.getElementById('pbRateInput').addEventListener('input', () => {
+  pbState.rate = parseFloat(document.getElementById('pbRateInput').value) || 0;
+  renderPaybackCalc();
+});
+
+document.getElementById('pbExpectedProdInput').addEventListener('input', () => {
+  pbState.expectedProd = parseFloat(document.getElementById('pbExpectedProdInput').value) || 0;
+  pbState.prodManuallySet = true;
+  renderPaybackCalc();
 });
 
 // Standard loan amortization payment formula.
@@ -1982,7 +2035,7 @@ function loanAnnualPayment(principal, annualRatePct, years){
 // every field happens to be at its neutral value.
 function paybackNumbers(){
   const grossInvestment = pbState.cap * 1000 * pbState.costPerW;
-  const baseAnnualEnergy = pbState.cap * pbState.yieldKwh;
+  const baseAnnualEnergy = pbState.expectedProd; // this is the actual calculation driver now — province yield is comparison-only
 
   const adv = pbState.advanced;
   const rebate = adv ? pbState.rebate : 0;
@@ -2040,7 +2093,28 @@ function renderPaybackCalc(){
   document.getElementById('pbPayback').innerHTML = isFinite(paybackYears) ? paybackYears.toFixed(1) + '<small> yrs</small>' : '—';
   document.getElementById('pbNet25').textContent = (net25 >= 0 ? '$' : '-$') + Math.abs(Math.round(net25)).toLocaleString();
 
+  renderYieldCompare();
   if (paybackChartInstance) renderPaybackChart(); // keep the chart in sync once it exists
+}
+
+// Specific yield = annual energy produced (kWh/yr) ÷ installed capacity (kWp).
+// "Your yield" (from Expected annual production) is the actual number driving
+// the payback calculation. The province irradiance figure is comparison-only —
+// it no longer feeds the math at all.
+function renderYieldCompare(){
+  if (pbState.cap <= 0) return;
+
+  const irrYield = provinceYield(pbState.province);
+  const userYield = pbState.expectedProd / pbState.cap;
+  const diffPct = irrYield > 0 ? ((userYield - irrYield) / irrYield) * 100 : 0;
+
+  document.getElementById('pbYieldCompareIrr').textContent = Math.round(irrYield).toLocaleString();
+  document.getElementById('pbYieldCompareUser').textContent = Math.round(userYield).toLocaleString();
+
+  const diffCell = document.getElementById('pbYieldCompareDiff');
+  const sign = diffPct >= 0 ? '+' : '';
+  diffCell.textContent = `${sign}${diffPct.toFixed(1)}%`;
+  diffCell.style.color = Math.abs(diffPct) < 5 ? 'var(--text-dim)' : (diffPct > 0 ? 'var(--cyan)' : 'var(--red)');
 }
 
 function renderPaybackChart(){
@@ -2158,39 +2232,68 @@ async function exportPaybackToExcel(){
     sum.mergeCells('B8:E8');
     sum.getCell('B8').value = 'Your inputs';
     sum.getCell('B8').font = { size:12, bold:true, color:{argb: XL.navy} };
+    ['B','C','D','E'].forEach(col => {
+      sum.getCell(`${col}8`).border = { bottom: { style:'thin', color:{argb: XL.navy} } };
+    });
 
+    // Each row is [label, value, numFmt, unit]. The number lives alone in column C
+    // (right-aligned, plain numeric format — no unit baked in), and the unit sits
+    // in its own cell in column D, left-aligned right next to it.
     const inputRows = [
-      ['System type', pbState.type === 'residential' ? 'Residential' : 'Commercial'],
-      ['Province', provinceName],
-      ['System size (kWp)', pbState.cap],
-      ['Installed cost ($/W)', pbState.costPerW],
-      ['Electricity rate (¢/kWh)', pbState.rate],
-      ['Estimated yield (kWh/kWp/yr)', pbState.yieldKwh],
-      ['Advanced mode', adv ? 'On' : 'Off'],
+      ['System type', pbState.type === 'residential' ? 'Residential' : 'Commercial', null, ''],
+      ['Province', provinceName, null, ''],
+      ['System size', pbState.cap, '0.##', 'kWp'],
+      ['Installed cost', pbState.costPerW, '"$"0.00', '/W'],
+      ['Electricity rate', pbState.rate, '0.0', '¢/kWh'],
+      ['Expected annual production — used in calculation', pbState.expectedProd, '#,##0', 'kWh'],
+      ['Specific yield used', Math.round(pbState.expectedProd / pbState.cap), '#,##0', 'kWh/kWp/yr'],
+      ['Province irradiance estimate — comparison only', provinceYield(pbState.province), '#,##0', 'kWh/kWp/yr'],
+      ['Advanced mode', adv ? 'On' : 'Off', null, ''],
     ];
     if (adv){
       inputRows.push(
-        ['Rebate ($)', pbState.rebate],
-        ['Financing', pbState.financeMode === 'loan' ? 'Loan' : 'Cash'],
-        ...(pbState.financeMode === 'loan' ? [['Loan rate (%)', pbState.loanRate], ['Loan term (yrs)', pbState.loanTerm]] : []),
-        ['Electricity inflation (%/yr)', pbState.inflation],
-        ['Panel degradation (%/yr)', pbState.degradation],
-        ['Annual maintenance ($)', pbState.maintenance],
-        ['Inverter replacement cost ($)', pbState.inverterCost],
-        ['Inverter replacement year', pbState.inverterYear],
+        ['Rebate', pbState.rebate, '"$"#,##0', ''],
+        ['Financing', pbState.financeMode === 'loan' ? 'Loan' : 'Cash', null, ''],
+        ...(pbState.financeMode === 'loan' ? [
+          ['Loan rate', pbState.loanRate, '0.0', '%'],
+          ['Loan term', pbState.loanTerm, '0', 'yrs'],
+        ] : []),
+        ['Electricity inflation', pbState.inflation, '0.0', '%/yr'],
+        ['Panel degradation', pbState.degradation, '0.0', '%/yr'],
+        ['Annual maintenance', pbState.maintenance, '"$"#,##0', '/yr'],
+        ['Inverter replacement cost', pbState.inverterCost, '"$"#,##0', ''],
+        ['Inverter replacement year', pbState.inverterYear, '0', '(of 25)'],
       );
     }
     let r = 9;
-    inputRows.forEach(([label, value], i) => {
-      const labelCell = sum.getCell(`B${r}`), valueCell = sum.getCell(`C${r}`);
-      labelCell.value = label; valueCell.value = value;
+    inputRows.forEach(([label, value, numFmt, unit], i) => {
+      const labelCell = sum.getCell(`B${r}`), valueCell = sum.getCell(`C${r}`), unitCell = sum.getCell(`D${r}`);
+      labelCell.value = label; valueCell.value = value; unitCell.value = unit || '';
+      if (numFmt) valueCell.numFmt = numFmt;
       labelCell.font = { size:10.5, color:{argb: XL.label} };
       valueCell.font = { size:10.5, bold:true, color:{argb: XL.navy} };
+      unitCell.font = { size:9.5, color:{argb: XL.label} };
+      labelCell.alignment = { horizontal:'left' };
+      valueCell.alignment = { horizontal:'right' }; // the number, alone, right-aligned
+      unitCell.alignment = { horizontal:'left', vertical:'middle' }; // the unit, alone, left-aligned right next to it
       if (i % 2 === 0){ // zebra striping
-        labelCell.fill = valueCell.fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.grey} };
+        labelCell.fill = valueCell.fill = unitCell.fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.grey} };
       }
       r++;
     });
+    // thin card border around the whole inputs block
+    for (let cr = 8; cr < r; cr++){
+      ['B','C','D'].forEach(col => {
+        const cell = sum.getCell(`${col}${cr}`);
+        cell.border = {
+          ...(cell.border||{}),
+          left: col==='B' ? { style:'thin', color:{argb:'FFE0E4E8'} } : cell.border?.left,
+          right: col==='D' ? { style:'thin', color:{argb:'FFE0E4E8'} } : cell.border?.right,
+          top: cr===8 ? { style:'thin', color:{argb:'FFE0E4E8'} } : cell.border?.top,
+          bottom: cr===r-1 ? { style:'thin', color:{argb:'FFE0E4E8'} } : cell.border?.bottom,
+        };
+      });
+    }
     r += 1;
 
     // ---- Embed the live payback chart as an image, straight off the canvas ----
