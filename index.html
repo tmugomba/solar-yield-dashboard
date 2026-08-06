@@ -746,14 +746,18 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
 
     <div class="panel" style="margin-bottom:18px;">
       <div class="panel-title">ELECTRICITY PRICE VS. ILLUSTRATIVE SOLAR LCOE, BY PROVINCE<span class="info-i">i<span class="tooltip">Both columns default to researched/modelled values but are fully editable &mdash; type your own numbers if you have better data. Solar LCOE defaults use representative utility/community-scale costs ($1.60/W, 1.5% annual O&amp;M, 5% discount rate, 25-year life, 15% tilt gain over flat horizontal irradiance), a different, lower cost basis than the residential payback calculator below.</span></span>
-        <button class="loc-btn secondary" id="rateTableResetBtn" style="margin-left:auto; padding:4px 10px; font-size:10px; text-transform:none; letter-spacing:normal;" title="Clear every manual edit in this table">&#8635; Reset all to known/estimated values</button>
+        <span class="mini-toggle" id="rateViewToggle" style="margin-left:auto;">
+          <button class="active" data-view="table">Table</button><button data-view="chart">Chart</button>
+        </span>
+        <button class="loc-btn secondary" id="rateTableResetBtn" style="padding:4px 10px; font-size:10px; text-transform:none; letter-spacing:normal;" title="Clear every manual edit in this table">&#8635; Reset all to known/estimated values</button>
       </div>
       <div class="field-note" style="margin-bottom:12px;">Uses representative utility-scale solar costs, not residential retail pricing &mdash; see the calculator below for a homeowner-scale estimate.</div>
       <table class="data-table rate-table" id="rateTable">
         <thead><tr><th>Province</th><th>Electricity price</th><th>Illustrative solar LCOE</th><th>Verdict</th></tr></thead>
         <tbody id="rateTableBody"></tbody>
       </table>
-      <div class="field-note" style="margin-top:10px;">Electricity prices default to approximate residential averages as of mid-2026, but every row is editable &mdash; type in your own known rate and the verdict updates live. Use the &#8635; button to reset a row to the researched default.</div>
+      <div class="chart-wrap" id="rateChartWrap" style="display:none; height:400px;"><canvas id="rateChart"></canvas></div>
+      <div class="field-note" style="margin-top:10px;" id="rateTableFooterNote">Electricity prices default to approximate residential averages as of mid-2026, but every row is editable &mdash; type in your own known rate and the verdict updates live. Use the &#8635; button to reset a row to the researched default.</div>
     </div>
 
     <div class="panel">
@@ -1010,7 +1014,7 @@ const state = {
   tilt: 45, azimuth: 180,
   hourly: null,  // { time[], ghi[], nowIdx, todayStart, todayEnd }
 };
-const charts = { today:null, ns:null };
+const charts = { today:null, ns:null, rate:null };
 
 /* ==========================================================================
    TABS
@@ -1765,6 +1769,7 @@ function renderRateTable(){
       input.classList.toggle('edited', val !== defaultVal);
       const p = solarProvinceData.find(x => x.code === code);
       updateVerdict(code, solarLCOE(p.value));
+      if (rateViewMode === 'chart') renderRateChart(); // keep the chart in sync if it's the visible view
     });
   });
   tbody.querySelectorAll('.rate-reset').forEach(btn => {
@@ -1779,9 +1784,73 @@ function renderRateTable(){
       input.value = defaultVal.toFixed(1);
       input.classList.remove('edited');
       updateVerdict(code, solarLCOE(p.value));
+      if (rateViewMode === 'chart') renderRateChart();
     });
   });
 }
+
+// Table/Chart toggle for the province rate comparison — same underlying data,
+// just a different lens. Chart mode makes it much faster to spot which
+// provinces are clear solar wins vs. close calls, at a glance across all 13.
+let rateViewMode = 'table';
+document.getElementById('rateViewToggle').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-view]');
+  if (!btn) return;
+  document.querySelectorAll('#rateViewToggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  rateViewMode = btn.dataset.view;
+  const isChart = rateViewMode === 'chart';
+  document.getElementById('rateTable').style.display = isChart ? 'none' : '';
+  document.getElementById('rateChartWrap').style.display = isChart ? 'block' : 'none';
+  document.getElementById('rateTableFooterNote').textContent = isChart
+    ? 'Bars sorted by electricity price, highest to lowest. The highlighted province matches your selection in the calculator below.'
+    : 'Electricity prices default to approximate residential averages as of mid-2026, but every row is editable — type in your own known rate and the verdict updates live. Use the ↺ button to reset a row to the researched default.';
+  if (isChart) renderRateChart();
+});
+
+function renderRateChart(){
+  const highlightCode = pbState.province;
+  const rows = solarProvinceData.map(p => ({ ...p, defaultLcoe: solarLCOE(p.value) }))
+    .sort((a,b) => (customRates[b.code] ?? ELECTRICITY_RATES[b.code]) - (customRates[a.code] ?? ELECTRICITY_RATES[a.code]));
+
+  const labels = rows.map(r => r.name);
+  const priceData = rows.map(r => customRates[r.code] ?? ELECTRICITY_RATES[r.code]);
+  const lcoeData = rows.map(r => customLCOE[r.code] ?? r.defaultLcoe);
+  // the selected province's bars get a brighter fill + outline so it pops out of the lineup
+  const priceColors = rows.map(r => r.code === highlightCode ? '#f2b705' : 'rgba(242,183,5,0.45)');
+  const lcoeColors  = rows.map(r => r.code === highlightCode ? '#4fd8c4' : 'rgba(79,216,196,0.45)');
+
+  const ctx = document.getElementById('rateChart');
+  if (charts.rate) charts.rate.destroy();
+  charts.rate = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Electricity price', data: priceData, backgroundColor: priceColors, borderRadius: 3, maxBarThickness: 22 },
+        { label: 'Illustrative solar LCOE', data: lcoeData, backgroundColor: lcoeColors, borderRadius: 3, maxBarThickness: 22 },
+      ]
+    },
+    options: {
+      indexAxis: 'y', // horizontal bars — much easier to read 13 province names than cramming them on the x-axis
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top', labels: { color: '#a9b8c4', font: { family: 'JetBrains Mono', size: 11 }, boxWidth: 12, padding: 14 } },
+        tooltip: {
+          backgroundColor: '#1a2332', borderColor: '#202c3a', borderWidth: 1,
+          titleFont: { family: 'JetBrains Mono', size: 11 }, bodyFont: { family: 'JetBrains Mono', size: 12 },
+          padding: 10,
+          callbacks: { label: (item) => `${item.dataset.label}: ${item.parsed.x.toFixed(1)}¢/kWh` }
+        }
+      },
+      scales: {
+        x: { ticks: { color: '#a9b8c4', font: { family: 'JetBrains Mono', size: 10.5 } }, grid: { color: '#1a2332' }, title: { display:true, text:'¢/kWh', color:'#8a99a6', font:{ family:'JetBrains Mono', size:11 } } },
+        y: { ticks: { color: '#a9b8c4', font: { family: 'JetBrains Mono', size: 11 } }, grid: { display:false } },
+      }
+    }
+  });
+}
+
 
 // Recomputes and writes just the verdict cell for one province — used both
 // on initial render and on every live edit. Respects manual overrides for
@@ -1807,6 +1876,7 @@ document.getElementById('rateTableResetBtn').addEventListener('click', () => {
   Object.keys(customRates).forEach(k => delete customRates[k]);
   Object.keys(customLCOE).forEach(k => delete customLCOE[k]);
   renderRateTable();
+  if (rateViewMode === 'chart') renderRateChart();
 });
 
 /* ---------- Nova Scotia payback calculator ---------- */
@@ -1855,6 +1925,7 @@ pbProvinceSelect.addEventListener('change', () => {
   applyProvinceSelection();
   renderPaybackCalc();
   renderRateTable();
+  if (rateViewMode === 'chart') renderRateChart();
 });
 
 document.getElementById('pbResetBtn').addEventListener('click', () => {
