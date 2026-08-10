@@ -913,11 +913,19 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
             <div class="field-note">$ cost, at which year &mdash; most inverters are warrantied 10&ndash;15 years.</div>
           </div>
         </div>
+
+        <div class="two-col">
+          <div class="field">
+            <div class="field-label"><span>Discount rate <span style="color:var(--text-faint); font-weight:400;">(LCOE only)</span></span></div>
+            <input type="number" class="number-input" id="pbDiscountRateInput" value="5.0" step="0.5" min="0" max="20">
+            <div class="field-note">% per year &mdash; represents the time value of money for your <b>Solar cost of energy (LCOE)</b> figure below. Unlike the other fields on this panel, this one applies whether Advanced mode is on or off &mdash; it's a modeling assumption, not a simplification toggle. 5% is a conventional default; raise it if you'd otherwise put this money somewhere higher-return, lower it if your alternative is a savings account.</div>
+          </div>
+        </div>
       </div>
 
       <div class="lcoe-hero" id="lcoeHero">
         <div>
-          <div class="lcoe-label">Your solar cost of energy (LCOE)<span class="info-i">i<span class="tooltip">Levelized Cost of Energy for <b>your specific system</b> &mdash; the present value of every dollar it will cost (upfront cash or loan payments, plus maintenance and any inverter replacement) divided by the present value of every kWh it's expected to produce, over 25 years at a 5% discount rate. Based on the standard residential LCOE methodology. Two terms aren't modeled and are treated as zero: performance-based incentives, and the tax benefit of deducting loan interest (not typically applicable to residential solar financing in Canada).</span></span></div>
+          <div class="lcoe-label">Your solar cost of energy (LCOE)<span class="info-i">i<span class="tooltip">Levelized Cost of Energy for <b>your specific system</b> &mdash; the present value of every dollar it will cost (upfront cash or loan payments, plus maintenance and any inverter replacement) divided by the present value of every kWh it's expected to produce, over 25 years at an editable discount rate (see Advanced assumptions above, default 5%). Based on the standard residential LCOE methodology. Two terms aren't modeled and are treated as zero: performance-based incentives, and the tax benefit of deducting loan interest (not typically applicable to residential solar financing in Canada).</span></span></div>
           <div class="lcoe-val" id="lcoeVal">&mdash;<small>&cent;/kWh</small></div>
         </div>
         <div class="lcoe-compare">
@@ -985,7 +993,7 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
           <span>INT<sub>n</sub> &times; ETR</span><span>Loan interest &times; effective tax rate &mdash; not modeled (not typically deductible for residential solar loans in Canada), treated as 0</span>
           <span>OM<sub>n</sub></span><span>Operations &amp; maintenance in year n, including any inverter replacement</span>
           <span>EO<sub>n</sub></span><span>Energy output in year n (degraded from year 1)</span>
-          <span>d</span><span>Discount rate (5%, same rate used for the Regional tab's LCOE)</span>
+          <span>d</span><span>Discount rate &mdash; editable in the Savings tab's Advanced assumptions, defaults to 5% (same default used for the Regional tab's fixed LCOE rate)</span>
         </div>
       </div>
     </div>
@@ -1932,6 +1940,7 @@ const pbState = {
   advanced: false,
   rebate: 0, financeMode: 'cash', loanRate: 6.5, loanTerm: 10,
   inflation: 3.0, degradation: 0.5, maintenance: 100, inverterCost: 1500, inverterYear: 12,
+  discountRate: 5.0, // LCOE-only; applies whether Advanced mode is on or off — see field note
 };
 const pbProvinceSelect = document.getElementById('pbProvinceSelect');
 
@@ -2019,6 +2028,7 @@ const advancedFieldMap = [
   ['pbMaintenanceInput', 'maintenance'],
   ['pbInverterCostInput', 'inverterCost'],
   ['pbInverterYearInput', 'inverterYear'],
+  ['pbDiscountRateInput', 'discountRate'],
 ];
 advancedFieldMap.forEach(([id, key]) => {
   document.getElementById(id).addEventListener('input', (e) => {
@@ -2207,7 +2217,7 @@ function paybackNumbers(){
   // residential solar loans in Canada the way it can for some US financing.
   let discCostSum = 0, discEnergySum = 0;
   rows.forEach(row => {
-    const df = 1 / Math.pow(1 + LCOE_DISCOUNT_RATE, row.year);
+    const df = 1 / Math.pow(1 + pbState.discountRate/100, row.year);
     discCostSum += row.costs * df;
     if (row.year >= 1) discEnergySum += row.energyKwh * df;
   });
@@ -2423,6 +2433,7 @@ async function exportPaybackToExcel(){
       ['Expected production (used)', pbState.expectedProd, '#,##0', 'kWh'],
       ['Specific yield used', Math.round(pbState.expectedProd / pbState.cap), '#,##0', 'kWh/kWp/yr'],
       ['Province irradiance (comparison)', provinceYield(pbState.province), '#,##0', 'kWh/kWp/yr'],
+      ['Discount rate (LCOE)', pbState.discountRate, '0.0', '%'],
       ['Your solar LCOE (25-yr, discounted)', Number(n.lcoeCents.toFixed(2)), '0.0', '¢/kWh'],
       ['Advanced mode', adv ? 'On' : 'Off', null, ''],
     ];
