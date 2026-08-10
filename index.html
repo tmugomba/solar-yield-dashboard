@@ -271,6 +271,24 @@ svg#componentsDiagram{ width:100%; height:auto; display:block; margin: 0 auto; }
 .payback-kpi .val{ font-family: var(--font-mono); font-size: 22px; font-weight:700; color: var(--amber); }
 .payback-kpi .val small{ font-size: 12px; color: var(--text-faint); font-weight:400; }
 .payback-kpi.cyan .val{ color: var(--cyan); }
+
+/* ---------- LCOE hero card — deliberately louder than the standard KPI
+   cards below it, since this is the single number that answers "what does
+   my solar energy actually cost, all-in" — worth making it impossible to miss. ---------- */
+.lcoe-hero{
+  margin: 4px 0 18px; padding: 20px 26px; border-radius: 12px;
+  background: linear-gradient(135deg, rgba(242,183,5,0.10), rgba(79,216,196,0.08));
+  border: 1.5px solid rgba(242,183,5,0.4);
+  box-shadow: 0 0 28px rgba(242,183,5,0.10);
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:18px;
+}
+.lcoe-hero .lcoe-label{ font-family: var(--font-mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color: var(--text-faint); margin-bottom:8px; display:flex; align-items:center; gap:4px; }
+.lcoe-hero .lcoe-val{ font-family: var(--font-mono); font-size:36px; font-weight:800; color: var(--amber); line-height:1; }
+.lcoe-hero .lcoe-val small{ font-size:15px; font-weight:500; color: var(--text-faint); margin-left:2px; }
+.lcoe-hero .lcoe-compare{ text-align:right; }
+.lcoe-hero .lcoe-compare .cmp-lbl{ font-family: var(--font-mono); font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color: var(--text-faint); margin-bottom:6px; }
+.lcoe-hero .lcoe-compare .cmp-val{ font-family: var(--font-mono); font-size:19px; font-weight:700; }
+@media (max-width: 640px){ .lcoe-hero{ flex-direction:column; align-items:flex-start; } .lcoe-hero .lcoe-compare{ text-align:left; } }
 .number-input{
   width:100%; background: rgba(255,255,255,0.03); border: 1px solid var(--panel-border); color: var(--text);
   font-family: var(--font-mono); font-size: 13px; padding: 8px 10px; border-radius: 6px;
@@ -439,7 +457,7 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
   <div class="hero">
     <div class="hero-badge">SOLAR &middot; LIVE PRODUCTION MONITOR</div>
     <h1>Solar Yield <span>Monitor</span></h1>
-    <p>A live PV production dashboard styled after real inverter monitoring platforms — a system flow view, today's production curve, and live weather driving the numbers. Data: Open-Meteo</p>
+    <p>A live PV production dashboard styled after real inverter monitoring platforms (SolarEdge, Solis, Fronius) — a system flow view, today's production curve, and live weather driving the numbers. Data: Open-Meteo, no API key required.</p>
   </div>
 
   <div class="loc-bar" id="locBar">
@@ -897,6 +915,17 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
         </div>
       </div>
 
+      <div class="lcoe-hero" id="lcoeHero">
+        <div>
+          <div class="lcoe-label">Your solar cost of energy (LCOE)<span class="info-i">i<span class="tooltip">Levelized Cost of Energy for <b>your specific system</b> &mdash; the present value of every dollar it will cost (upfront cash or loan payments, plus maintenance and any inverter replacement) divided by the present value of every kWh it's expected to produce, over 25 years at a 5% discount rate. Based on the standard residential LCOE methodology. Two terms aren't modeled and are treated as zero: performance-based incentives, and the tax benefit of deducting loan interest (not typically applicable to residential solar financing in Canada).</span></span></div>
+          <div class="lcoe-val" id="lcoeVal">&mdash;<small>&cent;/kWh</small></div>
+        </div>
+        <div class="lcoe-compare">
+          <div class="cmp-lbl">vs. your electricity rate</div>
+          <div class="cmp-val" id="lcoeCompare">&mdash;</div>
+        </div>
+      </div>
+
       <div class="payback-kpis">
         <div class="payback-kpi">
           <div class="lbl">Total investment</div>
@@ -941,7 +970,24 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
       <p style="font-size:13.5px; color:var(--text-dim); line-height:1.7;"><b>Power now (kW)</b> = system size (kWp) &times; (live irradiance &divide; 1000 W/m&sup2;) &times; performance ratio &times; orientation factor.</p>
       <p style="font-size:13.5px; color:var(--text-dim); line-height:1.7;"><b>Orientation factor</b> rewards tilt near latitude and azimuth near true south, using a simplified cosine model &mdash; not a full transposition model (e.g. HDKR/Perez).</p>
       <p style="font-size:13.5px; color:var(--text-dim); line-height:1.7;"><b>Energy today</b> integrates that formula across today's hourly irradiance values, from midnight to now (actuals) plus the remaining forecast hours.</p>
-      <p style="font-size:13.5px; color:var(--text-dim); line-height:1.7; margin:0;"><b>CO&#8322; avoided</b> uses a simplified grid-average emissions factor (0.35 kg CO&#8322;/kWh) applied to today's modelled energy &mdash; a rough illustrative figure, not a certified offset calculation.</p>
+      <p style="font-size:13.5px; color:var(--text-dim); line-height:1.7;"><b>CO&#8322; avoided</b> uses a simplified grid-average emissions factor (0.35 kg CO&#8322;/kWh) applied to today's modelled energy &mdash; a rough illustrative figure, not a certified offset calculation.</p>
+      <p style="font-size:13.5px; color:var(--text-dim); line-height:1.7;"><b>Utility-scale solar LCOE</b> (Regional tab): LCOE = (CAPEX/kWp &times; capital recovery factor + annual O&amp;M) &divide; annual energy yield. Uses representative community/utility-scale assumptions &mdash; $1.60/W capital cost, 1.5% annual O&amp;M, 5% discount rate, 25-year life, and a 15% tilt gain over flat horizontal irradiance &mdash; not residential retail pricing.</p>
+      <p style="font-size:13.5px; color:var(--text-dim); line-height:1.7; margin:0;"><b>Your solar LCOE</b> (Savings tab), based on the standard residential LCOE formula:</p>
+      <div style="margin:10px 0; padding:14px 16px; background:rgba(255,255,255,0.03); border:1px solid var(--panel-border); border-radius:8px; overflow-x:auto;">
+        <div style="font-family:var(--font-mono); font-size:12.5px; color:var(--amber); white-space:nowrap;">
+          LCOE &asymp; [ PC &minus; CBI &minus; PVPBI + &Sigma; LP<sub>n</sub>&frasl;(1+d)<sup>n</sup> &minus; &Sigma; INT<sub>n</sub>&frasl;(1+d)<sup>n</sup>&times;ETR + &Sigma; OM<sub>n</sub>&frasl;(1+d)<sup>n</sup> ] &divide; &Sigma; EO<sub>n</sub>&frasl;(1+d)<sup>n</sup>
+        </div>
+        <div style="font-size:11.5px; color:var(--text-faint); line-height:1.9; margin-top:12px; display:grid; grid-template-columns:auto 1fr; gap:2px 14px;">
+          <span>PC</span><span>Project cost (net upfront cash outlay, $0 if fully financed)</span>
+          <span>CBI</span><span>Cost-based incentive (rebate)</span>
+          <span>PVPBI</span><span>Present value of performance-based incentives &mdash; not modeled, treated as 0</span>
+          <span>LP<sub>n</sub></span><span>Loan payment in year n</span>
+          <span>INT<sub>n</sub> &times; ETR</span><span>Loan interest &times; effective tax rate &mdash; not modeled (not typically deductible for residential solar loans in Canada), treated as 0</span>
+          <span>OM<sub>n</sub></span><span>Operations &amp; maintenance in year n, including any inverter replacement</span>
+          <span>EO<sub>n</sub></span><span>Energy output in year n (degraded from year 1)</span>
+          <span>d</span><span>Discount rate (5%, same rate used for the Regional tab's LCOE)</span>
+        </div>
+      </div>
     </div>
 
     <div class="panel">
@@ -2151,18 +2197,40 @@ function paybackNumbers(){
     }
   }
 
+  // ---- Residential LCOE (NREL-style methodology) ----
+  // Reuses the exact same rows already built above: row 0's "costs" is the
+  // upfront cash outlay (0 if financed), and each subsequent row's "costs" is
+  // maintenance + any inverter replacement + that year's loan payment if
+  // applicable. Two terms from the textbook formula are treated as zero for
+  // this dashboard: PVPBI (performance-based incentives) aren't modeled, and
+  // INTn×ETR (tax benefit from deducting loan interest) doesn't apply to
+  // residential solar loans in Canada the way it can for some US financing.
+  let discCostSum = 0, discEnergySum = 0;
+  rows.forEach(row => {
+    const df = 1 / Math.pow(1 + LCOE_DISCOUNT_RATE, row.year);
+    discCostSum += row.costs * df;
+    if (row.year >= 1) discEnergySum += row.energyKwh * df;
+  });
+  const lcoeCents = discEnergySum > 0 ? (discCostSum / discEnergySum) * 100 : 0;
+
   return {
     investment: upfront, netCost, annualSavings: firstYearSavings,
-    paybackYears, net25: cumulativeArr[LCOE_LIFETIME_YEARS], years, cumulativeArr, rows,
+    paybackYears, net25: cumulativeArr[LCOE_LIFETIME_YEARS], years, cumulativeArr, rows, lcoeCents,
   };
 }
 
 function renderPaybackCalc(){
-  const { investment, annualSavings, paybackYears, net25 } = paybackNumbers();
+  const { investment, annualSavings, paybackYears, net25, lcoeCents } = paybackNumbers();
   document.getElementById('pbInvestment').textContent = '$' + Math.round(investment).toLocaleString();
   document.getElementById('pbAnnualSavings').innerHTML = '$' + Math.round(annualSavings).toLocaleString() + '<small>/yr</small>';
   document.getElementById('pbPayback').innerHTML = isFinite(paybackYears) ? paybackYears.toFixed(1) + '<small> yrs</small>' : '—';
   document.getElementById('pbNet25').textContent = (net25 >= 0 ? '$' : '-$') + Math.abs(Math.round(net25)).toLocaleString();
+
+  document.getElementById('lcoeVal').innerHTML = lcoeCents.toFixed(1) + '<small>¢/kWh</small>';
+  const diffPct = pbState.rate > 0 ? ((pbState.rate - lcoeCents) / pbState.rate) * 100 : 0;
+  const cmpCell = document.getElementById('lcoeCompare');
+  cmpCell.textContent = `${pbState.rate.toFixed(1)}¢/kWh — solar is ${Math.abs(diffPct).toFixed(0)}% ${diffPct >= 0 ? 'cheaper' : 'more expensive'}`;
+  cmpCell.style.color = diffPct >= 0 ? 'var(--cyan)' : 'var(--red)';
 
   renderYieldCompare();
   if (paybackChartInstance) renderPaybackChart(); // keep the chart in sync once it exists
@@ -2277,6 +2345,37 @@ async function exportPaybackToExcel(){
     sum.getCell('B3').font = { italic:true, size:11, color:{argb: XL.label} };
     sum.getRow(4).height = 8;
 
+    // ---- LCOE hero banner — same headline number as the on-screen hero card ----
+    const diffPct = pbState.rate > 0 ? ((pbState.rate - n.lcoeCents) / pbState.rate) * 100 : 0;
+    sum.mergeCells('B5:C6');
+    const lcoeLabelCell = sum.getCell('B5');
+    lcoeLabelCell.value = 'YOUR SOLAR COST OF ENERGY (LCOE)';
+    lcoeLabelCell.font = { size:9, bold:true, color:{argb: XL.label} };
+    lcoeLabelCell.alignment = { horizontal:'left', vertical:'top' };
+    sum.mergeCells('B7:C7');
+    const lcoeValCell = sum.getCell('B7');
+    lcoeValCell.value = n.lcoeCents.toFixed(1) + ' ¢/kWh';
+    lcoeValCell.font = { size:20, bold:true, color:{argb: XL.amberText} };
+    sum.mergeCells('D5:E6');
+    const lcoeCmpLabelCell = sum.getCell('D5');
+    lcoeCmpLabelCell.value = 'VS. YOUR ELECTRICITY RATE';
+    lcoeCmpLabelCell.font = { size:9, bold:true, color:{argb: XL.label} };
+    lcoeCmpLabelCell.alignment = { horizontal:'right', vertical:'top' };
+    sum.mergeCells('D7:E7');
+    const lcoeCmpValCell = sum.getCell('D7');
+    lcoeCmpValCell.value = `${pbState.rate.toFixed(1)}¢/kWh — solar ${Math.abs(diffPct).toFixed(0)}% ${diffPct >= 0 ? 'cheaper' : 'more expensive'}`;
+    lcoeCmpValCell.font = { size:11, bold:true, color:{argb: diffPct >= 0 ? XL.cyanText : XL.redText} };
+    lcoeCmpValCell.alignment = { horizontal:'right', vertical:'middle' };
+    ['B5','C5','D5','E5','B6','C6','D6','E6','B7','C7','D7','E7'].forEach(ref => {
+      sum.getCell(ref).fill = { type:'pattern', pattern:'solid', fgColor:{argb: 'FFFFF8E1'} }; // pale amber wash, like the on-screen glow
+    });
+    sum.getCell('B5').border = { top:thinBorder, left:thinBorder };
+    sum.getCell('E5').border = { top:thinBorder, right:thinBorder };
+    sum.getCell('B7').border = { bottom:thinBorder, left:thinBorder };
+    sum.getCell('E7').border = { bottom:thinBorder, right:thinBorder };
+    sum.getRow(5).height = 14; sum.getRow(6).height = 6; sum.getRow(7).height = 26;
+    sum.getRow(8).height = 8; // spacer before the standard KPI grid
+
     // ---- 4 KPI "cards", same numbers as the on-screen KPI cards ----
     const kpis = [
       ['TOTAL INVESTMENT', '$' + Math.round(n.investment).toLocaleString(), XL.amber, XL.amberText],
@@ -2285,29 +2384,29 @@ async function exportPaybackToExcel(){
       ['NET SAVINGS (25 YRS)', '$' + Math.round(n.net25).toLocaleString(), XL.cyan, XL.cyanText],
     ];
     const kpiCols = ['B','C','D','E'];
-    sum.getRow(5).height = 18; sum.getRow(6).height = 26;
+    sum.getRow(9).height = 18; sum.getRow(10).height = 26;
     kpis.forEach(([label, value, fill, textColor], i) => {
       const col = kpiCols[i];
-      const lc = sum.getCell(`${col}5`); lc.value = label;
+      const lc = sum.getCell(`${col}9`); lc.value = label;
       lc.font = { size:9, bold:true, color:{argb: XL.label} };
       lc.alignment = { horizontal:'center' };
-      const vc = sum.getCell(`${col}6`); vc.value = value;
+      const vc = sum.getCell(`${col}10`); vc.value = value;
       vc.font = { size:15, bold:true, color:{argb: textColor} };
       vc.fill = { type:'pattern', pattern:'solid', fgColor:{argb: fill} };
       vc.alignment = { horizontal:'center', vertical:'middle' };
       vc.border = { top:thinBorder, bottom:thinBorder, left:thinBorder, right:thinBorder };
     });
-    sum.getRow(7).height = 10;
+    sum.getRow(11).height = 10;
 
     // ---- Inputs table ----
-    sum.mergeCells('B8:E8');
-    sum.getRow(8).height = 20;
-    const headerCell = sum.getCell('B8');
+    sum.mergeCells('B12:E12');
+    sum.getRow(12).height = 20;
+    const headerCell = sum.getCell('B12');
     headerCell.value = '  Your inputs';
     headerCell.font = { size:12, bold:true, color:{argb: XL.white} };
     headerCell.alignment = { vertical:'middle' };
     ['B','C','D','E'].forEach(col => {
-      sum.getCell(`${col}8`).fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.navy} };
+      sum.getCell(`${col}12`).fill = { type:'pattern', pattern:'solid', fgColor:{argb: XL.navy} };
     });
 
     // Each row is [label, value, numFmt, unit]. The number lives alone in column C
@@ -2324,6 +2423,7 @@ async function exportPaybackToExcel(){
       ['Expected production (used)', pbState.expectedProd, '#,##0', 'kWh'],
       ['Specific yield used', Math.round(pbState.expectedProd / pbState.cap), '#,##0', 'kWh/kWp/yr'],
       ['Province irradiance (comparison)', provinceYield(pbState.province), '#,##0', 'kWh/kWp/yr'],
+      ['Your solar LCOE (25-yr, discounted)', Number(n.lcoeCents.toFixed(2)), '0.0', '¢/kWh'],
       ['Advanced mode', adv ? 'On' : 'Off', null, ''],
     ];
     if (adv){
@@ -2341,7 +2441,7 @@ async function exportPaybackToExcel(){
         ['Inverter replacement year', pbState.inverterYear, '0', '(of 25)'],
       );
     }
-    let r = 9;
+    let r = 13;
     inputRows.forEach(([label, value, numFmt, unit], i) => {
       const labelCell = sum.getCell(`B${r}`), valueCell = sum.getCell(`C${r}`), unitCell = sum.getCell(`D${r}`);
       labelCell.value = label; valueCell.value = value; unitCell.value = unit || '';
@@ -2359,7 +2459,7 @@ async function exportPaybackToExcel(){
       r++;
     });
     // thin card border around the whole inputs block
-    for (let cr = 8; cr < r; cr++){
+    for (let cr = 12; cr < r; cr++){
       ['B','C','D'].forEach(col => {
         const cell = sum.getCell(`${col}${cr}`);
         cell.border = {
