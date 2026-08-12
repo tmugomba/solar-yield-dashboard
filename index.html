@@ -802,11 +802,11 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
           <div class="field-label">
             <span>System size</span>
             <span class="val-input-wrap">
-              <input type="number" class="val-input" id="pbCapInput" min="1" max="1000" step="0.1" value="6">
+              <input type="number" class="val-input" id="pbCapInput" min="1" max="1000" step="0.1" value="5">
               <span class="val-input-suffix">kWp</span>
             </span>
           </div>
-          <input type="range" id="pbCapSlider" min="1" max="1000" step="1" value="6">
+          <input type="range" id="pbCapSlider" min="1" max="1000" step="1" value="5">
           <div class="field-note" id="pbCapNote">Typical residential systems run 5&ndash;10 kWp. Type an exact value above, or drag the slider.</div>
         </div>
         <div class="field">
@@ -829,7 +829,7 @@ details.note p, details.note li{ font-size: 13px; color: var(--text-dim); line-h
 
       <div class="field" style="margin-top:14px;">
         <div class="field-label"><span>Expected annual production (kWh)</span></div>
-        <input type="number" class="number-input" id="pbExpectedProdInput" value="6108" step="50" min="0">
+        <input type="number" class="number-input" id="pbExpectedProdInput" value="5090" step="50" min="0">
         <div class="field-note">This is what drives the payback numbers below &mdash; the total kWh your system is expected to produce per year. Pre&#8209;filled from system size &times; the province's irradiance figure, but edit it to match a real installer quote or PVWatts estimate. The province irradiance estimate itself is shown below for comparison only &mdash; it no longer feeds the calculation.</div>
       </div>
 
@@ -1935,8 +1935,8 @@ document.getElementById('rateTableResetBtn').addEventListener('click', () => {
 
 /* ---------- Nova Scotia payback calculator ---------- */
 const pbState = {
-  type: 'residential', province: 'NS', cap: 6, costPerW: 3.20, costMode: 'perWatt', rate: 19.1,
-  expectedProd: 6108, prodManuallySet: false, // expectedProd is what actually drives the payback calc
+  type: 'residential', province: 'NS', cap: state.cap, costPerW: 3.20, costMode: 'perWatt', rate: 19.1,
+  expectedProd: 5090, prodManuallySet: false, // expectedProd is what actually drives the payback calc — recomputed correctly at init below regardless
   advanced: false,
   rebate: 0, financeMode: 'cash', loanRate: 6.5, loanTerm: 10,
   inflation: 3.0, degradation: 0.5, maintenance: 100, inverterCost: 1500, inverterYear: 12,
@@ -2103,6 +2103,17 @@ function onPbCapChange(newCap){
   pbCapSlider.value = Math.max(pbCapSlider.min, Math.min(pbCapSlider.max, newCap));
   pbCapInput.value = newCap;
   setPbSliderFill(pbCapSlider);
+
+  // System size is one shared value across the whole dashboard, not two
+  // independent ones — keep the Dashboard tab's own slider/input and live
+  // production model in sync too, so the Excel export (which reads
+  // pbState.cap) always matches what's shown everywhere else.
+  state.cap = newCap;
+  capSlider.value = Math.max(capSlider.min, Math.min(capSlider.max, newCap));
+  capInput.value = newCap;
+  setSliderFill(capSlider);
+  renderAll();
+
   // system size changed — keep whichever cost field is NOT being actively edited in sync
   syncCostInputs(pbState.costMode);
   // and, unless the person has typed their own expected-production number,
@@ -2917,24 +2928,16 @@ const capSlider = document.getElementById('capSlider');
 const capInput = document.getElementById('capInput');
 setSliderFill(capSlider);
 
-// dragging the slider updates the typed number to match
-capSlider.addEventListener('input', () => {
-  setSliderFill(capSlider);
-  state.cap = parseFloat(capSlider.value);
-  capInput.value = state.cap;
-  renderAll();
-});
+// dragging the slider updates the typed number to match — and, via onPbCapChange,
+// keeps the Savings tab (and its Excel export) in sync with this same system size
+capSlider.addEventListener('input', () => onPbCapChange(parseFloat(capSlider.value)));
 
 // typing an exact value updates the slider to match (clamped to the slider's own range,
 // so a huge commercial-scale number still nudges the slider to its max rather than breaking it)
 capInput.addEventListener('input', () => {
   let v = parseFloat(capInput.value);
   if (isNaN(v)) return; // let them keep typing (e.g. mid-way through "1.5") without resetting
-  v = Math.max(1, Math.min(10000, v));
-  state.cap = v;
-  capSlider.value = Math.max(capSlider.min, Math.min(capSlider.max, v));
-  setSliderFill(capSlider);
-  renderAll();
+  onPbCapChange(Math.max(1, Math.min(10000, v)));
 });
 // on blur, snap the displayed number back to a clean value if it was left invalid/empty
 capInput.addEventListener('blur', () => {
